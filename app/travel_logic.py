@@ -1,14 +1,16 @@
 import os
-import googlemaps
 from datetime import datetime
-from openai import OpenAI
+
 
 # Initialize clients inside the file but outside the function
 # Ensure these environment variables are set in AWS Lambda
-gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_KEY"))
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 def get_best_route(user_text):
+    import googlemaps
+    from openai import OpenAI
+    gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_KEY"))
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     try:
         # --- STEP 1: AI EXTRACTION ---
         # We force the AI to identify the start and end strictly.
