@@ -9,18 +9,15 @@ from app.travel_logic import get_best_route, log_expense
 app = FastAPI()
 
 @app.get("/")
-async def root():
-    return {"status": "Response-able AI Bot is Online"}
-
-@app.get("/")
-@app.get("/{proxy+}")  # This catches any GET request
+@app.get("/default/")
 async def root():
     return {"status": "Response-able AI Bot is Online"}
 
 @app.post("/")
 @app.post("/whatsapp")
-@app.post("/{proxy+}")  # This catches any POST request
+@app.post("/default/whatsapp")
 async def whatsapp_webhook(Body: str = Form(...), From: str = Form(...)):
+    # ... your existing logic ...
     
     """
     Main entry point for Twilio WhatsApp messages.
