@@ -1,55 +1,84 @@
 import os
-import boto3
+import googlemaps
 from datetime import datetime
 from openai import OpenAI
-from app.prompt import SYSTEM_PROMPT
 
-# 1. Setup Clients
+# Clients
+gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_KEY"))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-table = dynamodb.Table('ResponseAbleExpenses')
 
-def get_best_route(user_input: str):
+def get_best_route(user_text):
+    # STEP 1: Strict Extraction with AI
+    extraction_prompt = f"""
+    You are a logistics assistant. Extract the Origin and Destination from this text: "{user_text}"
+    Rules:
+    - If the user says "dropped at", "starting from", or "I am at", that is the ORIGIN.
+    - If the user says "going to", "head to", or "to", that is the DESTINATION.
+    - Output ONLY in this format: ORIGIN|DESTINATION
     """
-    Combines AI reasoning with travel data.
-    """
-    # 2. Ask the AI to plan the route based on your prompt.py instructions
+    
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_input}
-        ]
+        messages=[{"role": "user", "content": extraction_prompt}]
     )
-    
-    ai_summary = response.choices[0].message.content
+    extracted = response.choices[0].message.content.strip()
+    origin, dest = extracted.split("|")
 
-    # 3. For the MVP, we'll assume a fixed price 
-    # (You can swap this for the TransportAPI function later tonight)
-    estimated_price = "24.50" 
+    # STEP 2: Get Technical Step-by-Step from Google
+    now = datetime.now()
+    directions_result = gmaps.directions(
+        origin,
+        dest,
+        mode="transit",
+        departure_time=now
+    )
+
+    if not directions_result:
+        return {"summary": "I couldn't find a transit route for that journey. Is the postcode correct?"}
+
+    # Extract the technical data to give to the AI
+    leg = directions_result[0]['legs'][0]
+    raw_steps = []
+    for step in leg['steps']:
+        instr = step.get('html_instructions', 'Walk')
+        duration = step['duration']['text']
+        # If it's a bus/train, get the specific details
+        transit = step.get('transit_details')
+        if transit:
+            line = transit['line']['short_name']
+            dept_stop = transit['departure_stop']['name']
+            dept_time = transit['departure_time']['text']
+            instr = f"Take {line} from {dept_stop} at {dept_time}"
+        raw_steps.append(f"{instr} ({duration})")
+
+    # STEP 3: Final Formatting for WhatsApp
+    summary_prompt = f"""
+    Convert these technical directions into a friendly, professional WhatsApp message for a driver.
+    Origin: {origin}
+    Destination: {dest}
+    Arrival Time: {leg['arrival_time']['text']}
+    Steps: {", ".join(raw_steps)}
+
+    Format like this:
+    📍 *Route to {dest}*
+    🏁 Arrive by: {leg['arrival_time']['text']}
     
-    # 4. Extract basic info for the database (Simplified for Day 1)
-    # We'll treat the whole summary as the 'plan'
+    *Steps:*
+    - [Formatted Step 1]
+    - [Formatted Step 2]
+    
+    💰 Estimated Fare: [Guess based on UK prices]
+    💡 Driver Tip: [One quick tip about the destination area]
+    """
+
+    final_summary = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": summary_prompt}]
+    )
+
     return {
-        "origin": "Extracted via AI",
-        "dest": "Extracted via AI",
-        "price": estimated_price,
-        "summary": ai_summary
+        "origin": origin,
+        "dest": dest,
+        "price": "£5-£10", # You can parse this from Google's 'fare' if available
+        "summary": final_summary.choices[0].message.content.strip()
     }
-
-def log_expense(driver_phone, origin, destination, price):
-    """
-    Saves the data to DynamoDB for your Friday report.
-    """
-    try:
-        table.put_item(
-            Item={
-                'driver_id': driver_phone,
-                'timestamp': datetime.utcnow().isoformat(),
-                'origin': origin,
-                'destination': destination,
-                'price': str(price)
-            }
-        )
-    except Exception as e:
-        print(f"DB Error: {e}")
