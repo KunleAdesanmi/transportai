@@ -9,11 +9,13 @@ from app.travel_logic import get_best_route, log_expense
 app = FastAPI()
 
 @app.get("/")
+@app.get("")
 @app.get("/default/")
 async def root():
     return {"status": "Response-able AI Bot is Online"}
 
 @app.post("/")
+@app.post("")
 @app.post("/whatsapp")
 @app.post("/default/whatsapp")
 async def whatsapp_webhook(Body: str = Form(...), From: str = Form(...)):
