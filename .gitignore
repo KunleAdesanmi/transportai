@@ -1,0 +1,24 @@
+# Local environment variables (CRITICAL)
+.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+
+# Deployment artifacts
+dist/
+build/
+*.zip
+lib/
+
+# IDE settings
+.vscode/
+.cursor/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

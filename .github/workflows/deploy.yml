@@ -1,0 +1,29 @@
+name: Deploy to AWS Lambda
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -t lib -r requirements.txt
+          cp -r app lib/
+          cd lib && zip -r ../deployment_package.zip .
+          
+      - name: Deploy to Lambda
+        uses: appleboy/lambda-action@master
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: 'us-east-1' # US East (N. Virginia)
+          function_name: 'ResponseAbleBot'
+          zip_file: deployment_package.zip
