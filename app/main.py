@@ -12,7 +12,7 @@ app = FastAPI()
 async def root():
     return {"status": "Response-able AI Bot is Online"}
 
-@app.post("/whatsapp")
+@app.post("/")
 async def whatsapp_webhook(Body: str = Form(...), From: str = Form(...)):
     """
     Main entry point for Twilio WhatsApp messages.
@@ -48,4 +48,8 @@ async def whatsapp_webhook(Body: str = Form(...), From: str = Form(...)):
 
 # This is what AWS Lambda calls. 
 # Matches the 'Handler' setting: app.main.handler
-handler = Mangum(app)
+handler = Mangum(app, lifespan="off")
+
+@app.get("/test")
+def test_path():
+    return {"message": "API is alive!"}
